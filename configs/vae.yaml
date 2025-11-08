@@ -1,0 +1,93 @@
+model:
+  base_learning_rate: 4.5e-6
+  target: diffusion.models.autoencoder.AutoencoderKL
+  params:
+    monitor: "val/rec_loss"
+    freeze_fid_encoder: True
+    ckpt_path: logs/lia-swinir/checkpoints/last.ckpt
+
+    lossconfig:
+      target: diffusion.modules.losses.LPIPSWithDiscriminator
+      params:
+        disc_start: 50001
+        kl_weight: 0.000001
+        disc_weight: 0.5
+
+    aeconfig:
+      in_channels: 3
+      ch: 128
+      z_channels: 3
+      double_z: True
+      ch_mult: [1, 2, 4]  # num_down = len(ch_mult)-1
+      num_res_blocks: 2
+      dropout: 0.0
+
+    fidconfig:
+      name: rdn
+      args:
+        no_upsampling: True
+
+    liaconfig:
+      imnet_spec:
+        name: mlp
+        args:
+          out_dim: 3
+          hidden_list: [256, 256, 256, 256]
+      pb_spec:
+        name: posenc
+        args:
+          posenc_type: 'sinusoid'
+          posenc_scale: 10
+          hidden_dims: 64
+          enc_dims: 64
+          gamma: 1
+      fid: False
+      perc: True
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 16
+    train:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DF2K/DF2K_train_HR
+          repeat: 5
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          scale_min: [4]
+          scale_max: [4]
+          only_img: True
+          augment: True
+    validation:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DIV2K/DIV2K_valid_HR
+          first_k: 100
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          scale_min: [4]
+          scale_max: [4]
+          only_img: True
+          phase: valid
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 21560
+        max_images: 4
+        increase_log_steps: False
+        log_first_step: True
+
+  trainer:
+    benchmark: True
+
+  find_unused_parameters: True

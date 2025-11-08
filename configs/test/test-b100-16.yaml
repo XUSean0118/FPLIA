@@ -1,0 +1,12 @@
+test_dataset:
+  dataset:
+    name: image-folder
+    args:
+      root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/SR/benchmark/B100/HR
+  wrapper:
+    name: sr-implicit-downsampled
+    args:
+      scale_max: 16
+  batch_size: 1
+eval_type: benchmark-16
+eval_bsize: 30000

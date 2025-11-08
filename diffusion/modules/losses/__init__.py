@@ -1,0 +1,2 @@
+from diffusion.modules.losses.contperceptual import LPIPSWithDiscriminator
+from diffusion.modules.losses.vqperceptual import VQLPIPSWithDiscriminator

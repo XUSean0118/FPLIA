@@ -1,0 +1,81 @@
+model:
+  base_learning_rate: 1e-4
+  target: diffusion.models.lia.LIAModel
+  params:
+    sample_q: 2304
+    monitor: "val/rec_loss"
+    loss_type: l2
+
+    scheduler_config:
+        target: torch.optim.lr_scheduler.MultiStepLR
+        params:
+          milestones: [200, 400, 600, 800]
+          gamma: 0.5
+
+    fidconfig:
+      name: swinir
+      args:
+        no_upsampling: True
+
+    liaconfig:
+      imnet_spec:
+        name: mlp
+        args:
+          out_dim: 3
+          hidden_list: [256, 256, 256, 256]
+      pb_spec:
+        name: posenc
+        args:
+          posenc_type: 'sinusoid'
+          posenc_scale: 10
+          hidden_dims: 64
+          enc_dims: 64
+          gamma: 1
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 32
+    train:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DF2K/DF2K_train_HR
+          repeat: 10
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          scale_min: [1]
+          scale_max: [4]
+          sample_q: 2304
+          augment: True
+    validation:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DIV2K/DIV2K_valid_HR
+          first_k: 100
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          scale_min: [4]
+          scale_max: [4]
+          sample_q: 2304
+          phase: valid
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 10780
+        max_images: 4
+        increase_log_steps: False
+        log_first_step: True
+
+  trainer:
+    benchmark: True
+
+  # find_unused_parameters: True

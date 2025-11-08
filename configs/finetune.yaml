@@ -1,0 +1,127 @@
+
+model:
+  base_learning_rate: 5.0e-05
+  target: diffusion.models.finetune.FinetuneModel
+  params:
+    linear_start: 0.0015
+    linear_end: 0.0155
+    log_every_t: 100
+    timesteps: 1000
+    loss_type: l2
+    first_stage_key: gt
+    cond_stage_key: inp
+    image_size: [48, 48] 
+    channels: 3
+    conditioning_key: concat
+    cond_stage_trainable: False
+    monitor: val/loss_ema
+    scale_by_std: True
+    ckpt_path: logs/diffusion_vae_swinir/checkpoints/last.ckpt
+
+    sample_q: 2304
+    scheduler_config:
+      target: torch.optim.lr_scheduler.MultiStepLR
+      params:
+        milestones: [200, 400, 600, 800]
+        gamma: 0.5
+
+    unet_config:
+      target: diffusion.modules.unet.UNetModel
+      params:
+        in_channels: 67
+        out_channels: 3
+        model_channels: 320
+        attention_resolutions: [1, 2, 4]
+        num_res_blocks: 2
+        channel_mult: [1, 2, 4, 4]
+        num_heads: 8
+        
+    first_stage_config:
+      target: diffusion.models.autoencoder.AutoencoderKL
+      params:
+        aeconfig:
+          in_channels: 3
+          ch: 128
+          z_channels: 3
+          double_z: True
+          ch_mult: [1, 2, 4]  # num_down = len(ch_mult)-1
+          num_res_blocks: 2
+          dropout: 0.0
+
+        fidconfig:
+          name: swinir
+          args:
+            no_upsampling: True
+
+        liaconfig:
+          imnet_spec:
+            name: mlp
+            args:
+              out_dim: 3
+              hidden_list: [256, 256, 256, 256]
+          pb_spec:
+            name: posenc
+            args:
+              posenc_type: 'sinusoid'
+              posenc_scale: 10
+              hidden_dims: 64
+              enc_dims: 64
+              gamma: 1
+          perc: True
+          fid_perc: True
+          perc_fid: True
+          blend: True
+
+    cond_stage_config: __is_first_stage_fid__
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 32
+    train:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DF2K/DF2K_train_HR
+          repeat: 10
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          k: 2
+          scale_min: [1, 4]
+          scale_max: [4, 16]
+          only_img: True
+          augment: True
+    validation:
+      dataset:
+        target: datasets.image_folder.ImageFolder
+        params:
+          root_path: /nobackup/gpu_d_00993_t3/mtk19837/datasets/DIV2K/DIV2K_valid_HR
+          first_k: 100
+      wrapper:
+        target: datasets.wrappers.SRImplicitDownsampled
+        params:
+          inp_size: 48
+          scale_min: [4]
+          scale_max: [4]
+          only_img: True
+          phase: valid
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 53900
+        max_images: 4
+        increase_log_steps: False
+        log_first_step: True
+        log_images_kwargs:
+          plot_denoise_rows: True
+          plot_progressive_rows: False
+
+  trainer:
+    benchmark: True
+
+  find_unused_parameters: True

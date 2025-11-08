@@ -1,0 +1,6 @@
+torch==2.8
+pytorch-lightning==1.8.4
+einops==0.8.1
+lpips==0.1.4
+omegaconf==2.3.0
+taming-transformers-rom1504==0.0.6
